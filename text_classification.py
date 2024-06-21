@@ -374,7 +374,7 @@ def text_classification():
 def main():    
     
 
-    text_classification(client)
+    text_classification()
 
 
 if __name__ == "__main__":

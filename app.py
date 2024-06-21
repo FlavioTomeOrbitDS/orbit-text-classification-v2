@@ -24,6 +24,8 @@ def tweetssearch():
         df = tweets_search(query,b_token,"lang:pt" ,max_results)    
         json_data = df.to_json(orient='records')
         
+        # df = pd.read_excel("outputs/tweets_search_output.xlsx")
+        # json_data = df.to_json(orient='records')
         return jsonify(json_data=json_data)            
         
     
@@ -33,20 +35,21 @@ def tweetssearch():
 def getclassifications():
     
     # # Get the JSON data       
-    df = text_classification()    
+    # df = text_classification()    
+    # json_data = df.to_json(orient='records')
+    
+    # # Get the JSON data       
+    text_classification()    
+    df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)
     json_data = df.to_json(orient='records')
     
-    #df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)
-    json_data = df.to_json(orient='records')
+    # df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)
+    # json_data = df.to_json(orient='records')
     
     return jsonify(json_data=json_data)            
 
 @app.route('/api/getchartdata', methods=['GET'])
-def getchartdata():
-    
-    #df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)    
-    #json_data = df.to_json(orient='records')
-    
+def getchartdata():        
     json_data = generate_js_dictionary()
     return jsonify(json_data=json_data)            
 
@@ -85,6 +88,10 @@ def setkeys():
 
 @app.route('/api/downloadsearch')
 def downloadsearch(filename='tweets_search_output.xlsx'):
+    return send_from_directory('outputs', filename, as_attachment=True)
+
+@app.route('/api/downloadclassification')
+def downloadclassification(filename='text_classification_output.xlsx'):
     return send_from_directory('outputs', filename, as_attachment=True)
   
     
