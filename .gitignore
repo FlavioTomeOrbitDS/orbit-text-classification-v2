@@ -1,0 +1,4 @@
+venv
+input.xlsx
+text_embeddings.csv
+conf/.env
