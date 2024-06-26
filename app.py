@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify,send_from_directory
-from flask_cors import CORS
+from flask import Flask, request, jsonify,send_from_directory # type: ignore
+from flask_cors import CORS # type: ignore
 from tweets_search import tweets_search
 from text_classification import text_classification, generate_js_dictionary
 import pandas as pd
@@ -31,21 +31,17 @@ def tweetssearch():
     
     return None
 
-@app.route('/api/getclassifications', methods=['GET'])
+@app.route('/api/getclassifications', methods=['POST'])
 def getclassifications():
-    
-    # # Get the JSON data       
-    # df = text_classification()    
-    # json_data = df.to_json(orient='records')
-    
-    # # Get the JSON data       
-    text_classification()    
-    df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)
-    json_data = df.to_json(orient='records')
-    
-    # df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)
-    # json_data = df.to_json(orient='records')
-    
+    if request.is_json:    
+        data = request.get_json()    
+        context = data.get('context', None)
+        tema = data.get('tema', None)
+        # # Get the JSON data       
+        text_classification(context, tema)    
+        df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)
+        json_data = df.to_json(orient='records')
+                    
     return jsonify(json_data=json_data)            
 
 @app.route('/api/getchartdata', methods=['GET'])

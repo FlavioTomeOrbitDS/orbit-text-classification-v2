@@ -1,3 +1,4 @@
+import asyncio
 from openai import OpenAI
 import openai
 import pandas as pd
@@ -10,8 +11,11 @@ from sklearn.cluster import KMeans
 import datetime
 import utils_conf
 import json
+import sentiments_async
+import embedding_async
+
 #************************** MAIN FUNCTIONS **********************************
-TEMA_PRINCIPAL = "Chat GPT"
+
 QTD_TAGS = 5
 QTD_CLASSIFIC = 2
 
@@ -21,6 +25,13 @@ embedding_model = "text-embedding-3-small"
 embedding_encoding = "cl100k_base"
 max_tokens = 8000  # the maximum for text-
 
+def get_embedding(client,text: str, model="text-embedding-3-small", **kwargs) -> List[float]:
+    # replace newlines, which can negatively affect performance.
+    text = text.replace("\n", " ")
+
+    response = client.embeddings.create(input=[text], model=model, **kwargs)
+
+    return response.data[0].embedding
 
 
 def get_current_datetime():
@@ -51,7 +62,7 @@ def limpar_texto(texto):
     texto = ''.join([char for char in texto if char not in string.punctuation])
     return texto
 
-def gen_cluster_description(client,n_clusters, cluster_column, text_column, max_length, sentimento, df):
+def gen_cluster_description(client,n_clusters, cluster_column, text_column, max_length, sentimento, df, contexto,tema):
     samples_per_cluster = 5
     cluster_descriptions = []
     
@@ -65,38 +76,14 @@ def gen_cluster_description(client,n_clusters, cluster_column, text_column, max_
         )
 
         tweets_list = numbered_texts
-        contexto = "O contexto do estudo é chatgpt"
-
-        #PROMPT 1
-        # prompt_user = f"""Você é um analista de dados avançado, especializado em processamento de linguagem natural. Seu papel hoje é analisar um conjunto de tweets fornecidos, com o tema {TEMA_PRINCIPAL}. Após uma análise detalhada, seu objetivo é sintetizar as informações e gerar uma única descrição concisa que capture a essência dos temas abordados nos tweets.
-        # Faça as análises considerando o seguinte contexto:
-        # {contexto}
-        # Especificações:
-        # 1. Leia e processe cada tweet, identificando temas-chave.
-        # 2. Use técnicas de NLP para detectar padrões e tendências nos dados.
-        # 3. Gere uma descrição clara e objetiva para o grupo de tweets. A descrição deve ser precisa, refletir os temas principais.
-        # 4. Mantenha a descrição entre 3 e {max_length} palavras para garantir concisão e foco.
-        # 5. Retorne somente uma única descrição criada que consiga sintetizar todas as outras, sem nenhuma outra informação adicional
-        # 6. Evite usar palavras do tipo 'Positivo', 'Negativo' e 'Neutro' na tag criada.
-        # 7. Evite usar palavras {TEMA_PRINCIPAL}
-        # 8. O sentimento geral dos tweets é {sentimento}
-
-        # Lista de tweets:
-        # {tweets_list}
-        # """
-
-        #PROMPT 2
-        # prompt_user = f"""Por favor, gere uma categoria para o grupo de comentários acima. Me retorne somente a categoria gerada, sem nenhuma outra informação:
-        # {contexto}
-        # Lista de comentários:
-        # {tweets_list}
-        # """
+        contexto = " "
 
         prompt_user =f"""
 Considerando os seguintes comentários de redes sociais conforme o seguinte contexto {contexto}:
 {tweets_list}
 Por favor, analise e sintetize uma categoria única que capture a essência geral destes comentários, refletindo temas ou preocupações principais expressos. Em caso de opinioes, discussões, criticas, preocupaçoes ou outras situações do tipo, cite as palavras que estão causando esse efeito nos comentários
-Evite usar a palavra "{TEMA_PRINCIPAL}"
+Evite usar a palavra "{tema}"
+A categoria deve ter no mínimo 3 e no máximo {max_length} palavras.
 Retorne somente a categoria gerada, sem nenhuma outra informação.
 """
         messages = [
@@ -107,7 +94,7 @@ Retorne somente a categoria gerada, sem nenhuma outra informação.
             model="gpt-4",
             messages=messages,
             temperature=0.5,
-            max_tokens=100,
+            max_tokens=1000,
             top_p=1,
             frequency_penalty=0.1,
             presence_penalty=0.1
@@ -121,13 +108,6 @@ Retorne somente a categoria gerada, sem nenhuma outra informação.
 
     return cluster_descriptions
 
-def get_embedding(client,text: str, model="text-embedding-3-small", **kwargs) -> List[float]:
-    # replace newlines, which can negatively affect performance.
-    text = text.replace("\n", " ")
-
-    response = client.embeddings.create(input=[text], model=model, **kwargs)
-
-    return response.data[0].embedding
 
 def get_clusters(n_clusters,embedding_column,cluster_column,df):
   sentimentos = ['positivo','neutro','negativo']
@@ -147,56 +127,11 @@ def get_clusters(n_clusters,embedding_column,cluster_column,df):
 
   return df_final_clusters
 
-def sentiment_analysis(client,text):
-    # Initialize the OpenAI API client with your API key
-    openai.api_key = "your_openai_api_key"
-    
-    prompt = f"Analise o sentimento do texto a seguir. Retorne somente o sentimento, sem nenumha outra informação: {text}"
-    messages = [
-        {"role": "system", "content": prompt}
-    ]
-    # response = openai.ChatCompletion.create(
-    #     model="gpt-4",
-    #     messages=messages,
-    #     temperature=0.1,
-    #     max_tokens=100,
-    #     top_p=1,
-    #     frequency_penalty=0.1,
-    #     presence_penalty=0.1
-    # )
-    
-    response = client.chat.completions.create(
-            model="gpt-4",
-            messages=messages,
-            temperature=0.5,
-            max_tokens=100,
-            top_p=1,
-            frequency_penalty=0.1,
-            presence_penalty=0.1
-        )
-
-    
-    response_content = response.choices[0].message.content
-    # Extract the sentiment from the API response
-    response_content = response_content.strip().lower()
-    
-    # Map the sentiment to a more concise label
-    if "positivo" in response_content:
-        sentiment = "positivo"
-    elif "negativo" in response_content:
-        sentiment = "negativo"
-    elif "neutro" in response_content:
-        sentiment = "neutro"
-    else:
-        sentiment = "indeterminado"  # Handle unexpected responses
-    
-    return sentiment
-
 def le_dataframe(file_path = 'outputs/tweets_search_output.xlsx'):
     try:
         df = pd.read_excel(file_path)    
         print(f"###### Tamanho do arquivo: {len(df)}")
-        return df
+        return df.head(500)
     except Exception as e:
         print(f'Erro ao ler o dataframe: {e}')
         return None
@@ -280,9 +215,10 @@ def generate_js_dictionary(file_path = 'outputs/text_classification_output.xlsx'
 
 
  #************************** MAIN FUNCTIONS############################### 
-def text_classification():
+def text_classification(context,tema):  
     #OpenAI API Key
-    client = OpenAI(api_key = utils_conf.get_api_key('OPENAI_KEY'))
+    api_key = utils_conf.get_api_key('OPENAI_KEY')
+    client = OpenAI(api_key = api_key)
     
     print(f"#### Lendo dataframe...{get_current_datetime()}")
     df = le_dataframe()
@@ -296,20 +232,15 @@ def text_classification():
         
     #Análise de sentimentos
     print(f"##### Fazendo a analise de sentimentos...{get_current_datetime()}")
-    sentimentos = []
-    df.Texto.apply(lambda x : sentimentos.append(sentiment_analysis(client,x)))
-    df = df.dropna(subset=['Texto'])
-    df['Sentimento'] = sentimentos
-    df['Sentimento'] = df['Sentimento'].replace("'negativo'", "negativo")
-    df['Sentimento'] = df['Sentimento'].replace("'positivo'", "positivo")
-    df['Sentimento'] = df['Sentimento'].replace("'neutro'", "neutro")
-    
-    # df = pd.read_excel("testes/ChatGPT_sentimentos.xlsx")
-    # df = df.head(500)
+    df = asyncio.run(sentiments_async.process_sentiments(df, api_key))    
+    df['Sentimento'] = df['Sentimento'].replace("Negative", "negativo")
+    df['Sentimento'] = df['Sentimento'].replace("Positive", "positivo")
+    df['Sentimento'] = df['Sentimento'].replace("Neutral", "neutro")
+    df.to_excel("teste _sentimentos_2.xlsx")                            
     
     #Embedding
     print(f"####Embedding...{get_current_datetime()}")
-    df["embedding"] = df.Texto.apply(lambda x: get_embedding(client,x, model=embedding_model))
+    df = asyncio.run(embedding_async.process_embedding(df, api_key))
     df.to_csv("text_embeddings.csv")
 
     #Gerando os Clusters
@@ -327,7 +258,7 @@ def text_classification():
         print(f"Processando sentimento {sentimento}")
         cluster_descriptions = []
         temp_df = df_final_clusters[df_final_clusters['Sentimento'] == sentimento]
-        aux = gen_cluster_description(client,QTD_TAGS, 'Cluster', 'Texto', 8,sentimento,temp_df)
+        aux = gen_cluster_description(client,QTD_TAGS, 'Cluster', 'Texto', 6,sentimento,temp_df,context,tema)
         cluster_descriptions.append(aux)
         temp_df['Cluster_Description'] = temp_df['Cluster'].apply(lambda x: cluster_descriptions[0][x])
         final_df = pd.concat([final_df, temp_df])
@@ -352,7 +283,7 @@ def text_classification():
         print(f"Processando sentimento {sentimento}")
         cluster_descriptions = []
         temp_df = df_final_clusters[df_final_clusters['Sentimento'] == sentimento]
-        aux = gen_cluster_description(client,QTD_CLASSIFIC,'Tags_cluster', 'Cluster_Description',4,sentimento,temp_df)
+        aux = gen_cluster_description(client,QTD_CLASSIFIC,'Tags_cluster', 'Cluster_Description',4,sentimento,temp_df, context,tema)
         cluster_descriptions.append(aux)
         temp_df['Categoria'] = temp_df['Tags_cluster'].apply(lambda x: cluster_descriptions[0][x])
         final_df = pd.concat([final_df, temp_df])
