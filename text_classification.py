@@ -82,7 +82,7 @@ Considerando os seguintes comentários de redes sociais conforme o seguinte cont
 {tweets_list}
 Por favor, analise e sintetize uma categoria única que capture a essência geral destes comentários, refletindo temas ou preocupações principais expressos. Em caso de opinioes, discussões, criticas, preocupaçoes ou outras situações do tipo, cite as palavras que estão causando esse efeito nos comentários
 Evite usar a palavra "{tema}"
-A categoria deve ter no mínimo 3 e no máximo {max_length} palavras.
+A categoria deve ter no máximo {max_length} palavras.
 Retorne somente a categoria gerada, sem nenhuma outra informação.
 """
         messages = [
