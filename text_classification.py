@@ -16,8 +16,7 @@ import embedding_async
 
 #************************** MAIN FUNCTIONS **********************************
 
-QTD_TAGS = 5
-QTD_CLASSIFIC = 2
+
 
 
 #Embedding params
@@ -212,13 +211,38 @@ def generate_js_dictionary(file_path = 'outputs/text_classification_output.xlsx'
     
     return json.dumps(data_dict, indent=2, ensure_ascii=False)
 
-
+def remove_quotes(df, column_name):
+    """
+    Remove todas as aspas duplas de uma coluna específica de um DataFrame.
+    
+    Parâmetros:
+        df (pandas.DataFrame): DataFrame a ser processado.
+        column_name (str): Nome da coluna onde as aspas duplas serão removidas.
+        
+    Retorna:
+        pandas.DataFrame: DataFrame com as aspas duplas removidas na coluna especificada.
+    """
+    if column_name in df.columns:
+        df[column_name] = df[column_name].str.replace('"', '', regex=False)
+    else:
+        print(f"A coluna {column_name} não existe no DataFrame.")
+    return df
+    
 
  #************************** MAIN FUNCTIONS############################### 
 def text_classification(context,tema):  
     #OpenAI API Key
-    api_key = utils_conf.get_api_key('OPENAI_KEY')
+    #api_key = utils_conf.get_api_key('OPENAI_KEY')
+    api_key = utils_conf.get_config_value('OPENAI_KEY')
     client = OpenAI(api_key = api_key)
+    
+    # QTD_TAGS = 5
+    # QTD_CLASSIFIC = 2
+    QTD_TAGS = int(utils_conf.get_config_value('tagQTD'))
+    QTD_CLASSIFIC =  int(utils_conf.get_config_value('classificQTD'))
+    
+    TAGS_LEN = utils_conf.get_config_value('max_len_tags')
+    CLASSIFIC_LEN = utils_conf.get_config_value('max_len_class')
     
     print(f"#### Lendo dataframe...{get_current_datetime()}")
     df = le_dataframe()
@@ -258,7 +282,7 @@ def text_classification(context,tema):
         print(f"Processando sentimento {sentimento}")
         cluster_descriptions = []
         temp_df = df_final_clusters[df_final_clusters['Sentimento'] == sentimento]
-        aux = gen_cluster_description(client,QTD_TAGS, 'Cluster', 'Texto', 6,sentimento,temp_df,context,tema)
+        aux = gen_cluster_description(client,QTD_TAGS, 'Cluster', 'Texto', TAGS_LEN,sentimento,temp_df,context,tema)
         cluster_descriptions.append(aux)
         temp_df['Cluster_Description'] = temp_df['Cluster'].apply(lambda x: cluster_descriptions[0][x])
         final_df = pd.concat([final_df, temp_df])
@@ -283,7 +307,7 @@ def text_classification(context,tema):
         print(f"Processando sentimento {sentimento}")
         cluster_descriptions = []
         temp_df = df_final_clusters[df_final_clusters['Sentimento'] == sentimento]
-        aux = gen_cluster_description(client,QTD_CLASSIFIC,'Tags_cluster', 'Cluster_Description',4,sentimento,temp_df, context,tema)
+        aux = gen_cluster_description(client,QTD_CLASSIFIC,'Tags_cluster', 'Cluster_Description',CLASSIFIC_LEN,sentimento,temp_df, context,tema)
         cluster_descriptions.append(aux)
         temp_df['Categoria'] = temp_df['Tags_cluster'].apply(lambda x: cluster_descriptions[0][x])
         final_df = pd.concat([final_df, temp_df])
@@ -292,6 +316,10 @@ def text_classification(context,tema):
     print(f"##### Formatando arquivo final...{get_current_datetime()}")
     final_df = final_df.drop(['Unnamed: 0','embedding', 'Cluster', 'tags_embedding','Tags_cluster'], axis=1)
     final_df = final_df.rename(columns={'Cluster_Description': 'Tag'})
+    
+    #remove as aspas duplas dos textos
+    final_df = remove_quotes(final_df,"Tag")
+    final_df = remove_quotes(final_df,"Categoria")
 
     final_df.to_excel(f"outputs/text_classification_output.xlsx")
     

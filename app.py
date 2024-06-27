@@ -17,15 +17,14 @@ def tweetssearch():
     if request.is_json:
         # Get the JSON data
         data = request.get_json()    
-        query = data.get('query', None)
-        print(query)
-        b_token = utils_conf.get_api_key('bearer_token')
-        max_results = utils_conf.get_api_key('max_tweets')
+        query = data.get('query', None)        
+        #b_token = utils_conf.get_api_key('bearer_token')
+        #max_results = utils_conf.get_api_key('max_tweets')
+        b_token = utils_conf.get_config_value('bearer_token')        
+        max_results = utils_conf.get_config_value('max_tweets')
         df = tweets_search(query,b_token,"lang:pt" ,max_results)    
-        json_data = df.to_json(orient='records')
-        
-        # df = pd.read_excel("outputs/tweets_search_output.xlsx")
-        # json_data = df.to_json(orient='records')
+        json_data = df.to_json(orient='records')        
+                
         return jsonify(json_data=json_data)            
         
     
@@ -36,7 +35,7 @@ def getclassifications():
     if request.is_json:    
         data = request.get_json()    
         context = data.get('context', None)
-        tema = data.get('tema', None)
+        tema = data.get('tema', None)        
         # # Get the JSON data       
         text_classification(context, tema)    
         df = pd.read_excel("outputs/text_classification_output.xlsx", sheet_name=1)
@@ -53,11 +52,15 @@ def getchartdata():
 def getkeys():
     try:
         keys = []
-        keys.append(utils_conf.get_api_key('bearer_token'))
-        keys.append(utils_conf.get_api_key('OPENAI_KEY'))
-        keys.append(utils_conf.get_api_key('max_tweets'))
+        keys.append(utils_conf.get_config_value('bearer_token'))
+        keys.append(utils_conf.get_config_value('OPENAI_KEY'))
+        keys.append(utils_conf.get_config_value('max_tweets'))
+        keys.append(utils_conf.get_config_value('max_len_tags'))
+        keys.append(utils_conf.get_config_value('max_len_class'))
+        keys.append(utils_conf.get_config_value('tagQTD'))
+        keys.append(utils_conf.get_config_value('classificQTD'))
         
-        #print(f"#### Data sent {keys}")
+        print(f"#### Data sent {keys}")
     except:
         return jsonify("Erro ao carregar as APIs")            
         
@@ -71,10 +74,18 @@ def setkeys():
         twitter_key = data.get('twitter_key', None)
         openai_key = data.get('openai_key', None)
         max_tweets = data.get('max_tweets', None)
+        max_len_tags = data.get('max_len_tags', None)
+        max_len_class = data.get('max_len_class', None)
+        tagQTD = data.get('tagQTD', None)
+        classificQTD = data.get('classificQTD', None)
         
-        utils_conf.saveApiKey('bearer_token', twitter_key)
-        utils_conf.saveApiKey('OPENAI_KEY', openai_key)
-        utils_conf.saveApiKey('max_tweets', str(max_tweets))
+        utils_conf.update_config_file('bearer_token', twitter_key)
+        utils_conf.update_config_file('OPENAI_KEY', openai_key)
+        utils_conf.update_config_file('max_tweets', str(max_tweets))
+        utils_conf.update_config_file('max_len_tags', str(max_len_tags))
+        utils_conf.update_config_file('max_len_class', str(max_len_class))
+        utils_conf.update_config_file('tagQTD', str(tagQTD))
+        utils_conf.update_config_file('classificQTD', str(classificQTD))                
         
         print("##### Config Updated!")
         return jsonify('200')            

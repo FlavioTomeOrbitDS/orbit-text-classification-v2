@@ -4,6 +4,10 @@ import time
 import utils_conf
 
 def get_all_recent_tweets(query, bearer_token, lang, max_results):
+    #Calcular o numero de chamadas para a api
+    max_results = int(max_results)
+    max_api_calls = max_results // 100
+    
     tweets_list = []
     url = "https://api.twitter.com/2/tweets/search/recent"
     headers = {
@@ -14,14 +18,15 @@ def get_all_recent_tweets(query, bearer_token, lang, max_results):
     # }
     params = {
         "query": f"{query} {lang}",
-        "max_results": max_results
+        "max_results": 100
     }
     next_token = None
-    call_count = 0  # Counter to limit the number of API calls
+    call_count = 1  # Counter to limit the number of API calls
 
     while True:
-        if call_count > 4:
-            break  # Break the loop if the call count exceeds 3 to avoid excessive API calls
+        if call_count > max_api_calls:
+            break  # Break the loop if the call count exceeds ""max_api_calls"" to avoid excessive API calls
+        print(f"{max_api_calls}")
         print(f"### Pagination {call_count}")
         call_count += 1
         

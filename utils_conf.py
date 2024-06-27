@@ -1,25 +1,46 @@
-from dotenv import load_dotenv, set_key
-import os
+def update_config_file(key, value, filename="conf/config.txt"):
+    # Tentar abrir o arquivo existente para ler as configurações atuais
+    try:
+        with open(filename, 'r') as file:
+            lines = file.readlines()
+    except FileNotFoundError:
+        lines = []
 
-def saveApiKey(api_name, api_key):    
-    # Define the path to your .env file
-    env_path = 'conf/.env'
-    # Load existing environment variables file or create one if it doesn't exist
-    load_dotenv(env_path)
-    # API Key to be saved
-    api_key = api_key
+    # Criar um dicionário a partir das linhas existentes
+    config_dict = {}
+    for line in lines:
+        if ':' in line:
+            k, v = line.strip().split(':', 1)
+            config_dict[k.strip()] = v.strip()
 
-    # Save the API key in the .env file
-    # This function will create the key if it does not exist or update the value if it does
-    set_key(env_path, api_name, api_key)
+    # Atualizar o dicionário com a nova chave e valor
+    config_dict[key] = value
 
-def get_api_key(api_name):
-    # Define the path to your .env file
-    env_path = 'conf/.env'
-    # Load the environment variables from the .env file
-    load_dotenv(env_path)
-    # Retrieve the API key
-    api_key = os.getenv(api_name)
+    # Escrever o dicionário atualizado de volta ao arquivo
+    with open(filename, 'w') as file:
+        for k, v in config_dict.items():
+            file.write(f"{k} : {v}\n")
+            
 
-    return api_key
 
+def get_config_value(key, filename="conf/config.txt"):
+    try:
+        with open(filename, 'r') as file:
+            lines = file.readlines()
+    except FileNotFoundError:
+        print("Arquivo de configuração não encontrado.")
+        return None
+
+    # Criar um dicionário a partir das linhas existentes
+    config_dict = {}
+    for line in lines:
+        if ':' in line:
+            k, v = line.strip().split(':', 1)
+            config_dict[k.strip()] = v.strip()
+
+    # Retornar o valor para a chave especificada, se existir
+    if key in config_dict:
+        return config_dict[key]
+    else:
+        print("Chave não encontrada.")
+        return None
