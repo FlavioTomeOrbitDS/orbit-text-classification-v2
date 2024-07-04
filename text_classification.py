@@ -173,13 +173,51 @@ def processar_incidencias(file_path):
 
     return "Processamento concluído com sucesso!"
 
-def generate_js_dictionary(file_path = 'outputs/text_classification_output.xlsx', sheet_name= 1):
+# def generate_js_dictionary(file_path = 'outputs/text_classification_output.xlsx', sheet_name= 1):
+#     # Carregar a aba especificada do arquivo Excel
+#     df = pd.read_excel(file_path, sheet_name=sheet_name)
+
+#     # Agrupar os dados por Sentimento e Categoria, e incluir as Tags e Incidências
+#     grouped = df.groupby(['Sentimento', 'Categoria']).apply(
+#         lambda x: x[['Tag', 'Incidência']].to_dict('records')
+#     ).reset_index().groupby('Sentimento').apply(
+#         lambda x: x[['Categoria', 0]].set_index('Categoria').to_dict(orient='index')
+#     ).to_dict()
+
+#     # Construir a estrutura do dicionário conforme o modelo solicitado
+#     data_dict = {
+#         "name": "Tema Principal",
+#         "children": []
+#     }
+
+#     for sentiment, categories in grouped.items():
+#         sentiment_dict = {
+#             "name": f"sentimento {sentiment}",
+#             "children": []
+#         }
+#         for category, details in categories.items():
+#             category_dict = {
+#                 "name": category,
+#                 "children": [
+#                     {"name": tag['Tag'], "value": tag['Incidência']} for tag in details[0]
+#                 ]
+#             }
+#             sentiment_dict['children'].append(category_dict)
+#         data_dict['children'].append(sentiment_dict)
+
+#     # Converter o dicionário para uma string formatada em JSON para ser usada em JavaScript
+#     # Usando ensure_ascii=False para manter caracteres acentuados corretamente
+#     #js_string = 'const data = ' + json.dumps(data_dict, indent=2, ensure_ascii=False) + ';'
+    
+#     return json.dumps(data_dict, indent=2, ensure_ascii=False)
+
+def generate_js_dictionary(file_path='outputs/text_classification_output.xlsx', sheet_name=1):
     # Carregar a aba especificada do arquivo Excel
     df = pd.read_excel(file_path, sheet_name=sheet_name)
 
     # Agrupar os dados por Sentimento e Categoria, e incluir as Tags e Incidências
     grouped = df.groupby(['Sentimento', 'Categoria']).apply(
-        lambda x: x[['Tag', 'Incidência']].to_dict('records')
+        lambda x: x[['Tag', 'Incidência', '% na Categoria', '% no Arquivo Geral']].to_dict('records')
     ).reset_index().groupby('Sentimento').apply(
         lambda x: x[['Categoria', 0]].set_index('Categoria').to_dict(orient='index')
     ).to_dict()
@@ -199,7 +237,12 @@ def generate_js_dictionary(file_path = 'outputs/text_classification_output.xlsx'
             category_dict = {
                 "name": category,
                 "children": [
-                    {"name": tag['Tag'], "value": tag['Incidência']} for tag in details[0]
+                    {
+                        "name": tag['Tag'],
+                        "value": tag['Incidência'],
+                        "percent_categoria": round(tag['% na Categoria'], 1),
+                        "percent_geral": round(tag['% no Arquivo Geral'], 1)
+                    } for tag in details[0]
                 ]
             }
             sentiment_dict['children'].append(category_dict)
@@ -207,7 +250,7 @@ def generate_js_dictionary(file_path = 'outputs/text_classification_output.xlsx'
 
     # Converter o dicionário para uma string formatada em JSON para ser usada em JavaScript
     # Usando ensure_ascii=False para manter caracteres acentuados corretamente
-    #js_string = 'const data = ' + json.dumps(data_dict, indent=2, ensure_ascii=False) + ';'
+    # js_string = 'const data = ' + json.dumps(data_dict, indent=2, ensure_ascii=False) + ';'
     
     return json.dumps(data_dict, indent=2, ensure_ascii=False)
 
@@ -230,7 +273,8 @@ def remove_quotes(df, column_name):
     
 
  #************************** MAIN FUNCTIONS############################### 
-def text_classification(context,tema):  
+def text_classification(df,context,tema):  
+    print(f"##### CLASSIFICANDO {len(df)} TEXTOS...{get_current_datetime()}")
     #OpenAI API Key
     #api_key = utils_conf.get_api_key('OPENAI_KEY')
     api_key = utils_conf.get_config_value('OPENAI_KEY')
@@ -244,8 +288,8 @@ def text_classification(context,tema):
     TAGS_LEN = utils_conf.get_config_value('max_len_tags')
     CLASSIFIC_LEN = utils_conf.get_config_value('max_len_class')
     
-    print(f"#### Lendo dataframe...{get_current_datetime()}")
-    df = le_dataframe()
+    #print(f"#### Lendo dataframe...{get_current_datetime()}")
+    #df = le_dataframe()
     
     #Formatação dos textos
     print(f"##### Formatando os textos...{get_current_datetime()}")
@@ -271,9 +315,13 @@ def text_classification(context,tema):
     print(f"#####Gerando CLusters...{get_current_datetime()}")
     datafile_path = "text_embeddings.csv"
     df = pd.read_csv(datafile_path)
-    df["embedding"] = df.embedding.apply(literal_eval).apply(np.array)  # convert string to numpy array        
-    df_final_clusters = get_clusters(QTD_TAGS,'embedding', 'Cluster',df)
-    
+    df["embedding"] = df.embedding.apply(literal_eval).apply(np.array)  # convert string to numpy array            
+    try:
+        df_final_clusters = get_clusters(QTD_TAGS,'embedding', 'Cluster',df)
+    except:
+       print("Erro ao gerar o cluster!!!!!!!")
+       return {"status": "error", "message": "Erro ao Gerar o cluster!"} 
+                
     #Gerando as descrições dos clusters
     print(f"##### Gerando as descrições das tags...{get_current_datetime()}")
     sentimentos = ['positivo', 'neutro','negativo']
@@ -328,7 +376,7 @@ def text_classification(context,tema):
     
     print(f"##### Processo finalizado!{get_current_datetime()}")
             
-    return final_df
+    return {"status": "success", "data": final_df}
 
 def main():    
     
