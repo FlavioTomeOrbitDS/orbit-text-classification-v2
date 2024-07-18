@@ -13,6 +13,7 @@ import utils_conf
 import json
 import sentiments_async
 import embedding_async
+from scripts_async import text_classification
 
 #************************** MAIN FUNCTIONS **********************************
 
@@ -60,7 +61,8 @@ def limpar_texto(texto):
     # Remove pontuações após a limpeza
     texto = ''.join([char for char in texto if char not in string.punctuation])
     return texto
-
+    
+    
 def gen_cluster_description(client,n_clusters, cluster_column, text_column, max_length, sentimento, df, contexto,tema):
     samples_per_cluster = 5
     cluster_descriptions = []

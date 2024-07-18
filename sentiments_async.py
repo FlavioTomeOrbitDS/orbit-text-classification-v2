@@ -5,7 +5,7 @@ import json
 import datetime
 import numpy as np
 
-def split_dataframe(df, max_items=100):
+def split_dataframe(df, max_items=50):
     """
     Splits a DataFrame into multiple smaller DataFrames, each with a maximum of 'max_items' rows.
     """
@@ -38,6 +38,7 @@ async def make_api_call_to_gpt(prompt, api_key):
                 return resp_json['choices'][0]['message']['content']
             else:
                 print(f"##### ERROR {response.status}")
+                print(response)
                 return f"Error: {response.status}"
 
 async def get_prompt(role,text):
